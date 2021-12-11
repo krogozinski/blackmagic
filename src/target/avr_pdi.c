@@ -26,6 +26,21 @@ void avr_pdi_init(avr_pdi_t *pdi)
 	return true;
 }
 
+void avr_add_flash(target *t, uint32_t start, size_t length)
+{
+	struct target_flash *f = calloc(1, sizeof(*f));
+	if (!f) {			/* calloc failed: heap exhaustion */
+		DEBUG_WARN("calloc: failed in %s\n", __func__);
+		return;
+	}
+
+	f->start = start;
+	f->length = length;
+	f->blocksize = 0x100;
+	f->erased = 0xff;
+	target_add_flash(t, f);
+}
+
 static bool avr_dev_shift_dr(jtag_proc_t *jp, uint8_t jd_index, uint8_t *dout, const uint8_t din)
 {
 	jtag_dev_t *d = &jtag_devs[jd_index];
