@@ -3,6 +3,7 @@
 #include "target_internal.h"
 #include "avr.h"
 #include "exception.h"
+#include "gdb_packet.h"
 
 #define IR_PDI		0x7U
 #define PDI_BREAK	0xBBU
@@ -12,8 +13,10 @@
 #define PDI_LDCS	0x80U
 #define PDI_STCS	0xC0U
 
-void avr_pdi_init(avr_pdi_t *pdi)
+bool avr_pdi_init(avr_pdi_t *pdi)
 {
+	target *t;
+
 	/* Check for a valid part number in the IDCode */
 	if ((pdi->idcode & 0x0FFFF000) == 0) {
 		DEBUG_WARN("Invalid PDI idcode %08" PRIx32 "\n", pdi->idcode);
@@ -23,6 +26,21 @@ void avr_pdi_init(avr_pdi_t *pdi)
 	DEBUG_INFO("AVR ID 0x%08" PRIx32 " (v%d)\n", pdi->idcode,
 		(uint8_t)((pdi->idcode >> 28U) & 0xfU));
 	jtag_dev_write_ir(&jtag_proc, pdi->dp_jd_index, IR_PDI);
+
+	t = target_new();
+	if (!t)
+		return false;
+
+	t->cpuid = pdi->idcode;
+	t->part_id = (pdi->idcode >> 12) & 0xFFFFU;
+	t->driver = "Atmel AVR";
+	t->core = "AVR";
+	t->priv = pdi;
+	t->priv_free = free;
+
+	if (atxmega_probe(t))
+		return true;
+	pdi->halt_reason = TARGET_HALT_RUNNING;
 	return true;
 }
 
