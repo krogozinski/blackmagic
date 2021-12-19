@@ -37,6 +37,14 @@ static void avr_reset(target *t);
 static void avr_halt_request(target *t);
 static enum target_halt_reason avr_halt_poll(target *t, target_addr *watch);
 
+typedef struct __attribute__((packed))
+{
+	uint8_t general[32]; // r0-r31
+	uint8_t sreg; // r32
+	uint16_t sp; // r33
+	uint32_t pc; // r34
+} avr_regs;
+
 bool avr_pdi_init(avr_pdi_t *pdi)
 {
 	target *t;
@@ -68,6 +76,9 @@ bool avr_pdi_init(avr_pdi_t *pdi)
 	t->reset = avr_reset;
 	t->halt_request = avr_halt_request;
 	t->halt_poll = avr_halt_poll;
+	// Unlike on an ARM processor, where this is the length of a table, here we return the size of
+	// a suitable registers structure.
+	t->regs_size = sizeof(avr_regs);
 
 	if (atxmega_probe(t))
 		return true;
