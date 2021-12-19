@@ -64,6 +64,7 @@ bool avr_pdi_init(avr_pdi_t *pdi)
 
 	t->attach = avr_attach;
 	t->detach = avr_detach;
+
 	t->reset = avr_reset;
 	t->halt_request = avr_halt_request;
 	t->halt_poll = avr_halt_poll;
@@ -91,7 +92,7 @@ uint8_t avr_pdi_reg_read(avr_pdi_t *pdi, uint8_t reg)
 	if (reg >= 16 ||
 		avr_jtag_shift_dr(&jtag_proc, pdi->dp_jd_index, &result, command) ||
 		result != PDI_EMPTY ||
-		!avr_jtag_shift_dr(&jtag_proc, pdi->dp_jd_index, &result, command))
+		!avr_jtag_shift_dr(&jtag_proc, pdi->dp_jd_index, &result, 0))
 		return 0xFFU; // TODO - figure out a better way to indicate failure.
 	return result;
 }
@@ -135,12 +136,16 @@ void avr_add_flash(target *t, uint32_t start, size_t length)
 bool avr_attach(target *t)
 {
 	avr_pdi_t *pdi = t->priv;
+	volatile struct exception e;
 	jtag_dev_write_ir(&jtag_proc, pdi->dp_jd_index, IR_PDI);
-	target_reset(t);
-	avr_enable(pdi, PDI_DEBUG);
-	target_halt_request(t);
 
-	return true;
+	TRY_CATCH (e, EXCEPTION_ALL) {
+		target_reset(t);
+		if (!avr_enable(pdi, PDI_DEBUG))
+			return false;
+		target_halt_request(t);
+	}
+	return !e.type;
 }
 
 void avr_detach(target *t)
@@ -156,7 +161,7 @@ static void avr_reset(target *t)
 	avr_pdi_t *pdi = t->priv;
 	if (!avr_pdi_reg_write(pdi, PDI_REG_RESET, PDI_RESET) ||
 		avr_pdi_reg_read(pdi, PDI_REG_STATUS) != 0x00)
-		raise_exception(EXCEPTION_ERROR, "Error resetting device, device in incorrect state\n");
+		raise_exception(EXCEPTION_ERROR, "Error resetting device, device in incorrect state");
 }
 
 static void avr_halt_request(target *t)
@@ -175,7 +180,7 @@ static void avr_halt_request(target *t)
 		!avr_pdi_reg_write(pdi, PDI_REG_RESET, 0) ||
 		avr_pdi_reg_read(pdi, PDI_REG_R3) != 0x14U ||
 		avr_pdi_reg_read(pdi, PDI_REG_R3) != 0x04U)
-		raise_exception(EXCEPTION_ERROR, "Error halting device, device in incorrect state\n");
+		raise_exception(EXCEPTION_ERROR, "Error halting device, device in incorrect state");
 	pdi->halt_reason = TARGET_HALT_REQUEST;
 }
 
