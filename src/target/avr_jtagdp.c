@@ -40,5 +40,6 @@ bool avr_jtag_shift_dr(jtag_proc_t *jp, uint8_t jd_index, uint8_t *dout, const u
 	for (uint8_t i = 0; i < 8; ++i)
 		result ^= (data[0] >> i) & 1U;
 	*dout = data[0];
+	DEBUG_WARN("Sent 0x%02x to target, response was 0x%02x (0x%x)\n", din, data[0], data[1]);
 	return result == data[1];
 }
