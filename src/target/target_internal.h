@@ -199,6 +199,7 @@ bool lpc15xx_probe(target *t);
 bool lpc17xx_probe(target *t);
 bool lpc43xx_probe(target *t);
 bool lpc546xx_probe(target *t);
+bool lpc55xx_probe(target *t);
 bool samx7x_probe(target *t);
 bool sam3x_probe(target *t);
 bool sam4l_probe(target *t);
