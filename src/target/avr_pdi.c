@@ -55,6 +55,13 @@
 
 #define AVR_ADDR_CPU_SPL		0x0100003DU
 
+#define AVR_ADDR_NVM			0x010001C0U
+#define AVR_ADDR_NVM_DATA		0x010001C4U
+#define AVR_ADDR_NVM_CMD		0x010001CAU
+
+#define AVR_NVM_CMD_NOP			0x00U
+#define AVR_NVM_CMD_READ_NVM	0x43U
+
 typedef enum
 {
 	PDI_NVM = 0x02U,
@@ -288,6 +295,12 @@ void avr_add_flash(target *t, uint32_t start, size_t length)
 	target_add_flash(t, f);
 }
 
+bool avr_ensure_nvm_idle(avr_pdi_t *pdi)
+{
+	return avr_pdi_write(pdi, PDI_DATA_8, AVR_ADDR_NVM_CMD, 0) &&
+		avr_pdi_write(pdi, PDI_DATA_8, AVR_ADDR_NVM_DATA, 0xFFU);
+}
+
 bool avr_attach(target *t)
 {
 	avr_pdi_t *pdi = t->priv;
@@ -299,6 +312,9 @@ bool avr_attach(target *t)
 		if (!avr_enable(pdi, PDI_DEBUG))
 			return false;
 		target_halt_request(t);
+		if (!avr_enable(pdi, PDI_NVM) ||
+			!avr_ensure_nvm_idle(pdi))
+			return false;
 	}
 	return !e.type;
 }
@@ -307,6 +323,7 @@ void avr_detach(target *t)
 {
 	avr_pdi_t *pdi = t->priv;
 
+	avr_disable(pdi, PDI_NVM);
 	avr_disable(pdi, PDI_DEBUG);
 	jtag_dev_write_ir(&jtag_proc, pdi->dp_jd_index, IR_BYPASS);
 }
