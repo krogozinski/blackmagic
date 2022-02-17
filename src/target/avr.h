@@ -4,11 +4,18 @@
 #include "jtag_scan.h"
 #include "target.h"
 
+enum avr_error_e
+{
+	pdi_ok,
+	pdi_failure,
+};
+
 typedef struct Atmel_DP_s {
 	uint32_t idcode;
 
 	uint8_t dp_jd_index;
 	enum target_halt_reason halt_reason;
+	enum avr_error_e error_state;
 } avr_pdi_t;
 
 bool avr_pdi_init(avr_pdi_t *pdi);

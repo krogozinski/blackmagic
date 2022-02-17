@@ -17,6 +17,7 @@ void avr_jtag_pdi_handler(uint8_t jd_index, uint32_t j_idcode)
 
 	pdi->dp_jd_index = jd_index;
 	pdi->idcode = jtag_devs[jd_index].jd_idcode;
+	pdi->error_state = pdi_ok;
 	avr_pdi_init(pdi);
 }
 
