@@ -357,12 +357,12 @@ static int stm32lx_nvm_prog_erase(struct target_flash *f, target_addr addr, size
 	stm32lx_nvm_lock(t, nvm);
 
 	/* Wait for completion or an error */
-	uint32_t sr;
+	uint32_t status;
 	do {
-		sr = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
-	} while (sr & STM32Lx_NVM_SR_BSY);
+		status = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
+	} while (status & STM32Lx_NVM_SR_BSY);
 
-	if ((sr & STM32Lx_NVM_SR_ERR_M) || !(sr & STM32Lx_NVM_SR_EOP) || target_check_error(t))
+	if ((status & STM32Lx_NVM_SR_ERR_M) || !(status & STM32Lx_NVM_SR_EOP) || target_check_error(t))
 		return -1;
 
 	return 0;
@@ -391,12 +391,12 @@ static int stm32lx_nvm_prog_write(struct target_flash *f, target_addr dest, cons
 	stm32lx_nvm_lock(t, nvm);
 
 	/* Wait for completion or an error */
-	uint32_t sr;
+	uint32_t status;
 	do {
-		sr = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
-	} while (sr & STM32Lx_NVM_SR_BSY);
+		status = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
+	} while (status & STM32Lx_NVM_SR_BSY);
 
-	if ((sr & STM32Lx_NVM_SR_ERR_M) || !(sr & STM32Lx_NVM_SR_EOP) || target_check_error(t))
+	if ((status & STM32Lx_NVM_SR_ERR_M) || !(status & STM32Lx_NVM_SR_EOP) || target_check_error(t))
 		return -1;
 
 	return 0;
@@ -441,12 +441,12 @@ static int stm32lx_nvm_data_erase(struct target_flash *f, target_addr addr, size
 	stm32lx_nvm_lock(t, nvm);
 
 	/* Wait for completion or an error */
-	uint32_t sr;
+	uint32_t status;
 	do {
-		sr = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
-	} while (sr & STM32Lx_NVM_SR_BSY);
+		status = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
+	} while (status & STM32Lx_NVM_SR_BSY);
 
-	if ((sr & STM32Lx_NVM_SR_ERR_M) || !(sr & STM32Lx_NVM_SR_EOP) || target_check_error(t))
+	if ((status & STM32Lx_NVM_SR_ERR_M) || !(status & STM32Lx_NVM_SR_EOP) || target_check_error(t))
 		return -1;
 
 	return 0;
@@ -482,12 +482,12 @@ static int stm32lx_nvm_data_write(struct target_flash *f, target_addr destinatio
 	stm32lx_nvm_lock(t, nvm);
 
 	/* Wait for completion or an error */
-	uint32_t sr;
+	uint32_t status;
 	do {
-		sr = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
-	} while (sr & STM32Lx_NVM_SR_BSY);
+		status = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
+	} while (status & STM32Lx_NVM_SR_BSY);
 
-	if ((sr & STM32Lx_NVM_SR_ERR_M) || !(sr & STM32Lx_NVM_SR_EOP) || target_check_error(t))
+	if ((status & STM32Lx_NVM_SR_ERR_M) || !(status & STM32Lx_NVM_SR_EOP) || target_check_error(t))
 		return -1;
 
 	return 0;
@@ -507,12 +507,12 @@ static bool stm32lx_option_write(target *t, uint32_t address, uint32_t value)
 	target_mem_write32(t, STM32Lx_NVM_PECR(nvm), STM32Lx_NVM_PECR_FIX);
 	target_mem_write32(t, address, value);
 
-	uint32_t sr;
+	uint32_t status;
 	do {
-		sr = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
-	} while (sr & STM32Lx_NVM_SR_BSY);
+		status = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
+	} while (status & STM32Lx_NVM_SR_BSY);
 
-	return !(sr & STM32Lx_NVM_SR_ERR_M);
+	return !(status & STM32Lx_NVM_SR_ERR_M);
 }
 
 /** Write one eeprom value.  This version is more flexible than that
@@ -541,12 +541,12 @@ static bool stm32lx_eeprom_write(target *t, uint32_t address, size_t cb, uint32_
 	else
 		return false;
 
-	uint32_t sr;
+	uint32_t status;
 	do {
-		sr = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
-	} while (sr & STM32Lx_NVM_SR_BSY);
+		status = target_mem_read32(t, STM32Lx_NVM_SR(nvm));
+	} while (status & STM32Lx_NVM_SR_BSY);
 
-	return !(sr & STM32Lx_NVM_SR_ERR_M);
+	return !(status & STM32Lx_NVM_SR_ERR_M);
 }
 
 static bool stm32lx_cmd_option(target *t, int argc, char **argv)
