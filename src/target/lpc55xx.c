@@ -105,7 +105,7 @@ bool lpc55xx_probe(target *t)
 		return false;
 	uint32_t chipid = target_mem_read32(t, 0x50000ff8);
 	DEBUG_WARN("Chipid %08" PRIx32 "\n", chipid);
-	/**/
+	(void)chipid;
 	target_add_ram(t, 0x20000000, 0x44000);
 	t->target_options |= CORTEXM_TOPT_INHIBIT_NRST;
 	switch (t->cpuid & CPUID_PATCH_MASK) {
@@ -119,40 +119,34 @@ bool lpc55xx_probe(target *t)
 	return true;
 }
 
-static bool lpc55_dmap_cmd_device_erase(target *t, int argc, const char **argv)
+static bool lpc55_dmap_mass_erase(target *t)
 {
-	(void)argc;
-	(void)argv;
 	ADIv5_AP_t *ap = t->priv;
 	if (lpc55_dmap_cmd(ap, LPC55_DMAP_BULK_ERASE))
 		return false;
 	return true;
 }
 
-const struct command_s lpc55_dmap_cmd_list[] = {
-	{"erase_mass", (cmd_handler)lpc55_dmap_cmd_device_erase,
-	 "Erase entire flash memory"},
-	{NULL, NULL, NULL}
-};
-
-void lpc55_dmap_probe(ADIv5_AP_t *ap)
+bool lpc55_dmap_probe(ADIv5_AP_t *ap)
 {
 	switch(ap->idr) {
 	case LPC55_DMAP_IDR:
 		break;
 	default:
-		return;
+		return false;
 	}
 	target *t = target_new();
 	if (!t) {
 		DEBUG_WARN("nxp_dmap_probe target_new failed\n");
-		return;
+		return false;
 	}
+
+	t->mass_erase = lpc55_dmap_mass_erase;
 	adiv5_ap_ref(ap);
 	t->priv = ap;
 	t->priv_free = (void*)adiv5_ap_unref;
 
 	t->driver = "LPC55 Debugger Mailbox";
 	t->regs_size = 4;
-	target_add_commands(t, lpc55_dmap_cmd_list, t->driver);
+	return true;
 }
