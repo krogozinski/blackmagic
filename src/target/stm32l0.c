@@ -330,7 +330,7 @@ static bool stm32lx_nvm_opt_unlock(target *t, uint32_t nvm)
     interface.  This is slower than stubbed versions(see NOTES).  The
     flash array is erased for all pages from addr to addr+len
     inclusive.  NVM register file address chosen from target. */
-static int stm32lx_nvm_prog_erase(struct target_flash *f, target_addr addr, size_t len)
+static int stm32lx_nvm_prog_erase(struct target_flash *f, const target_addr addr, const size_t len)
 {
 	target *t = f->t;
 	const uint32_t nvm = stm32lx_nvm_phys(t);
@@ -342,7 +342,7 @@ static int stm32lx_nvm_prog_erase(struct target_flash *f, target_addr addr, size
 	/* Flash page erase instruction */
 	target_mem_write32(t, STM32Lx_NVM_PECR(nvm), STM32Lx_NVM_PECR_ERASE | STM32Lx_NVM_PECR_PROG);
 
-	uint32_t pecr = target_mem_read32(t, STM32Lx_NVM_PECR(nvm));
+	const uint32_t pecr = target_mem_read32(t, STM32Lx_NVM_PECR(nvm));
 	if ((pecr & (STM32Lx_NVM_PECR_PROG | STM32Lx_NVM_PECR_ERASE)) != (STM32Lx_NVM_PECR_PROG | STM32Lx_NVM_PECR_ERASE))
 		return -1;
 
@@ -353,14 +353,9 @@ static int stm32lx_nvm_prog_erase(struct target_flash *f, target_addr addr, size
 	const size_t page_size = f->blocksize;
 	platform_timeout timeout;
 	platform_timeout_set(&timeout, 500);
-	while (len > 0) {
+	for (size_t offset = 0; offset < len; offset += page_size) {
 		/* Write first word of page to 0 */
-		target_mem_write32(t, addr, 0);
-		if (len > page_size)
-			len -= page_size;
-		else
-			len = 0;
-		addr += page_size;
+		target_mem_write32(t, addr + offset, 0);
 		if (full_erase)
 			target_print_progress(&timeout);
 	}
@@ -432,7 +427,7 @@ static int stm32lx_nvm_data_erase(struct target_flash *f, const target_addr addr
 	/* Flash data erase instruction */
 	target_mem_write32(t, STM32Lx_NVM_PECR(nvm), STM32Lx_NVM_PECR_ERASE | STM32Lx_NVM_PECR_DATA);
 
-	uint32_t pecr = target_mem_read32(t, STM32Lx_NVM_PECR(nvm));
+	const uint32_t pecr = target_mem_read32(t, STM32Lx_NVM_PECR(nvm));
 	if ((pecr & (STM32Lx_NVM_PECR_ERASE | STM32Lx_NVM_PECR_DATA)) != (STM32Lx_NVM_PECR_ERASE | STM32Lx_NVM_PECR_DATA))
 		return -1;
 
