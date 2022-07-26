@@ -393,9 +393,10 @@ static int stm32lx_nvm_prog_write(struct target_flash *f, target_addr dest, cons
 
 	/* Wait for BSY to clear because we cannot write the PECR until
 	   the previous operation completes on STM32Lxxx. */
-	while (target_mem_read32(t, STM32Lx_NVM_SR(nvm)) & STM32Lx_NVM_SR_BSY)
+	while (target_mem_read32(t, STM32Lx_NVM_SR(nvm)) & STM32Lx_NVM_SR_BSY) {
 		if (target_check_error(t))
 			return -1;
+	}
 
 	target_mem_write32(t, STM32Lx_NVM_PECR(nvm), STM32Lx_NVM_PECR_PROG | STM32Lx_NVM_PECR_FPRG);
 	target_mem_write(t, dest, src, size);
@@ -418,15 +419,12 @@ static int stm32lx_nvm_prog_write(struct target_flash *f, target_addr dest, cons
     interface .  The flash is erased for all pages from addr to
     addr+len, inclusive, on a word boundary.  NVM register file
     address chosen from target. */
-static int stm32lx_nvm_data_erase(struct target_flash *f, target_addr addr, size_t len)
+static int stm32lx_nvm_data_erase(struct target_flash *f, const target_addr addr, const size_t len)
 {
 	target *t = f->t;
 	const size_t page_size = f->blocksize;
 	const uint32_t nvm = stm32lx_nvm_phys(t);
-
-	/* Word align */
-	len += (addr & 3);
-	addr &= ~3;
+	const uint32_t aligned_addr = addr & ~3;
 
 	if (!stm32lx_nvm_prog_data_unlock(t, nvm))
 		return -1;
@@ -438,16 +436,9 @@ static int stm32lx_nvm_data_erase(struct target_flash *f, target_addr addr, size
 	if ((pecr & (STM32Lx_NVM_PECR_ERASE | STM32Lx_NVM_PECR_DATA)) != (STM32Lx_NVM_PECR_ERASE | STM32Lx_NVM_PECR_DATA))
 		return -1;
 
-	while (len > 0) {
+	for (size_t offset = 0; offset < len; offset += page_size)
 		/* Write first word of page to 0 */
-		target_mem_write32(t, addr, 0);
-
-		if (len > page_size)
-			len -= page_size;
-		else
-			len = 0;
-		addr += page_size;
-	}
+		target_mem_write32(t, aligned_addr + offset, 0);
 
 	/* Disable further programming by locking PECR */
 	stm32lx_nvm_lock(t, nvm);
