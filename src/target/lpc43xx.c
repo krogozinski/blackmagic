@@ -60,9 +60,8 @@ const struct command_s lpc43xx_cmd_list[] = {
 	{NULL, NULL, NULL}
 };
 
-static void lpc43xx_add_flash(target *t, uint32_t iap_entry,
-                       uint8_t bank, uint8_t base_sector,
-                       uint32_t addr, size_t len, size_t erasesize)
+static void lpc43xx_add_flash(
+	target *t, uint32_t iap_entry, uint8_t bank, uint8_t base_sector, uint32_t addr, size_t len, size_t erasesize)
 {
 	struct lpc_flash *lf = lpc_add_flash(t, addr, len);
 	lf->f.erase = lpc43xx_flash_erase;
@@ -78,32 +77,23 @@ static void lpc43xx_add_flash(target *t, uint32_t iap_entry,
 
 bool lpc43xx_probe(target *t)
 {
-	uint32_t chipid;
-	uint32_t iap_entry;
+	const uint32_t chipid = target_mem_read32(t, LPC43XX_CHIPID);
 
-	chipid = target_mem_read32(t, LPC43XX_CHIPID);
-
-	switch(chipid) {
-	case 0x4906002B:	/* Parts with on-chip flash */
-	case 0x7906002B:	/* LM43S?? - Undocumented? */
+	switch (chipid) {
+	case 0x4906002B: /* Parts with on-chip flash */
+	case 0x7906002B: /* LM43S?? - Undocumented? */
 		switch (t->cpuid & 0xFF00FFF0) {
 		case 0x4100C240:
 			t->driver = "LPC43xx Cortex-M4";
-			if (t->cpuid == 0x410FC241)
-			{
+			if (t->cpuid == 0x410FC241) {
 				/* LPC4337 */
-				iap_entry = target_mem_read32(t,
-				                  IAP_ENTRYPOINT_LOCATION);
+				const uint32_t iap_entry = target_mem_read32(t, IAP_ENTRYPOINT_LOCATION);
 				target_add_ram(t, 0, 0x1A000000);
-				lpc43xx_add_flash(t, iap_entry, 0, 0,
-				                  0x1A000000, 0x10000, 0x2000);
-				lpc43xx_add_flash(t, iap_entry, 0, 8,
-				                  0x1A010000, 0x70000, 0x10000);
+				lpc43xx_add_flash(t, iap_entry, 0, 0, 0x1A000000, 0x10000, 0x2000);
+				lpc43xx_add_flash(t, iap_entry, 0, 8, 0x1A010000, 0x70000, 0x10000);
 				target_add_ram(t, 0x1A080000, 0xF80000);
-				lpc43xx_add_flash(t, iap_entry, 1, 0,
-				                  0x1B000000, 0x10000, 0x2000);
-				lpc43xx_add_flash(t, iap_entry, 1, 8,
-				                  0x1B010000, 0x70000, 0x10000);
+				lpc43xx_add_flash(t, iap_entry, 1, 0, 0x1B000000, 0x10000, 0x2000);
+				lpc43xx_add_flash(t, iap_entry, 1, 8, 0x1B010000, 0x70000, 0x10000);
 				target_add_commands(t, lpc43xx_cmd_list, "LPC43xx");
 				target_add_ram(t, 0x1B080000, 0xE4F80000UL);
 				t->target_options |= CORTEXM_TOPT_INHIBIT_NRST;
@@ -117,7 +107,7 @@ bool lpc43xx_probe(target *t)
 		}
 		t->mass_erase = lpc43xx_mass_erase;
 		return true;
-	case 0x5906002B:	/* Flashless parts */
+	case 0x5906002B: /* Flashless parts */
 	case 0x6906002B:
 		switch (t->cpuid & 0xFF00FFF0) {
 		case 0x4100C240:
