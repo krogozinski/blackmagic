@@ -45,8 +45,8 @@
 #define FLASH_NUM_BANK		2
 #define FLASH_NUM_SECTOR	15
 
-static bool lpc43xx_cmd_reset(target *t, int argc, const char *argv[]);
-static bool lpc43xx_cmd_mkboot(target *t, int argc, const char *argv[]);
+static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
+static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 static int lpc43xx_flash_init(target *t);
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_mass_erase(target *t);
@@ -126,23 +126,6 @@ bool lpc43xx_probe(target *t)
 	return false;
 }
 
-/* Reset all major systems _except_ debug */
-static bool lpc43xx_cmd_reset(target *t, int argc, const char *argv[])
-{
-	(void)argc;
-	(void)argv;
-
-	/* Cortex-M4 Application Interrupt and Reset Control Register */
-	static const uint32_t AIRCR = 0xE000ED0C;
-	/* Magic value key */
-	static const uint32_t reset_val = 0x05FA0004;
-
-	/* System reset on target */
-	target_mem_write(t, AIRCR, &reset_val, sizeof(reset_val));
-
-	return true;
-}
-
 static bool lpc43xx_mass_erase(target *t)
 {
 	platform_timeout timeout;
@@ -191,6 +174,23 @@ static void lpc43xx_set_internal_clock(target *t)
 	target_mem_write32(t, 0x40050000 + 0x06C, val2);
 }
 
+/* Reset all major systems _except_ debug */
+static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv)
+{
+	(void)argc;
+	(void)argv;
+
+	/* Cortex-M4 Application Interrupt and Reset Control Register */
+	static const uint32_t AIRCR = 0xe000ed0cU;
+	/* Magic value key */
+	static const uint32_t reset_val = 0x05fA0004U;
+
+	/* System reset on target */
+	target_mem_write(t, AIRCR, &reset_val, sizeof(reset_val));
+
+	return true;
+}
+
 /*
  * Call Boot ROM code to make a flash bank bootable by computing and writing the
  * correct signature into the exception table near the start of the bank.
@@ -198,7 +198,7 @@ static void lpc43xx_set_internal_clock(target *t)
  * This is done indepently of writing to give the user a chance to verify flash
  * before changing it.
  */
-static bool lpc43xx_cmd_mkboot(target *t, int argc, const char *argv[])
+static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv)
 {
 	/* Usage: mkboot 0 or mkboot 1 */
 	if (argc != 2) {
