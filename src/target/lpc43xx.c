@@ -31,6 +31,11 @@
 #define LPC43xx_ETBAHB_SRAM_BASE 0x2000c000U
 #define LPC43xx_ETBAHB_SRAM_SIZE (16U * 1024U)
 
+#define LPC43xx_CGU_BASE               0x40050000U
+#define LPC43xx_CGU_CPU_CLK            (LPC43xx_CGU_BASE + 0x06CU)
+#define LPC43xx_CGU_BASE_CLK_AUTOBLOCK (1U << 11U)
+#define LPC43xx_CGU_BASE_CLK_SEL_IRC   (1U << 24U)
+
 /* Cortex-M4 Application Interrupt and Reset Control Register */
 #define LPC43xx_AIRCR       0xe000ed0cU
 /* Magic value reset key */
@@ -55,7 +60,6 @@ static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 static int lpc43xx_flash_init(target *t);
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_mass_erase(target *t);
-static void lpc43xx_set_internal_clock(target *t);
 static void lpc43xx_wdt_set_period(target *t);
 static void lpc43xx_wdt_pet(target *t);
 
@@ -154,7 +158,7 @@ static int lpc43xx_flash_init(target *t)
 	lpc43xx_wdt_set_period(t);
 
 	/* Force internal clock */
-	lpc43xx_set_internal_clock(t);
+	target_mem_write32(t, LPC43xx_CGU_CPU_CLK, LPC43xx_CGU_BASE_CLK_AUTOBLOCK | LPC43xx_CGU_BASE_CLK_SEL_IRC);
 
 	/* Initialize flash IAP */
 	struct lpc_flash *f = (struct lpc_flash *)t->flash;
@@ -170,12 +174,6 @@ static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t 
 		return -1;
 
 	return lpc_flash_erase(f, addr, len);
-}
-
-static void lpc43xx_set_internal_clock(target *t)
-{
-	const uint32_t val2 = (1 << 11) | (1 << 24);
-	target_mem_write32(t, 0x40050000 + 0x06C, val2);
 }
 
 /* Reset all major systems _except_ debug */
