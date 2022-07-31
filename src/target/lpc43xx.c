@@ -24,26 +24,26 @@
 #include "cortexm.h"
 #include "lpc_common.h"
 
-#define LPC43XX_CHIPID	0x40043200
+#define LPC43XX_CHIPID 0x40043200U
 
-#define IAP_ENTRYPOINT_LOCATION	0x10400100
+#define IAP_ENTRYPOINT_LOCATION 0x10400100U
 
-#define LPC43XX_ETBAHB_SRAM_BASE 0x2000C000
-#define LPC43XX_ETBAHB_SRAM_SIZE (16*1024)
+#define LPC43XX_ETBAHB_SRAM_BASE 0x2000c000U
+#define LPC43XX_ETBAHB_SRAM_SIZE (16U * 1024U)
 
-#define LPC43XX_WDT_MODE 0x40080000
-#define LPC43XX_WDT_CNT  0x40080004
-#define LPC43XX_WDT_FEED 0x40080008
-#define LPC43XX_WDT_PERIOD_MAX 0xFFFFFF
-#define LPC43XX_WDT_PROTECT (1 << 4)
+#define LPC43XX_WDT_MODE       0x40080000U
+#define LPC43XX_WDT_CNT        0x40080004U
+#define LPC43XX_WDT_FEED       0x40080008U
+#define LPC43XX_WDT_PERIOD_MAX 0xffffffU
+#define LPC43XX_WDT_PROTECT    (1U << 4U)
 
-#define IAP_RAM_SIZE	LPC43XX_ETBAHB_SRAM_SIZE
-#define IAP_RAM_BASE	LPC43XX_ETBAHB_SRAM_BASE
+#define IAP_RAM_SIZE LPC43XX_ETBAHB_SRAM_SIZE
+#define IAP_RAM_BASE LPC43XX_ETBAHB_SRAM_BASE
 
-#define IAP_PGM_CHUNKSIZE	4096
+#define IAP_PGM_CHUNKSIZE 4096U
 
-#define FLASH_NUM_BANK		2
-#define FLASH_NUM_SECTOR	15
+#define FLASH_NUM_BANK   2U
+#define FLASH_NUM_SECTOR 15U
 
 static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
@@ -57,7 +57,7 @@ static void lpc43xx_wdt_pet(target *t);
 const struct command_s lpc43xx_cmd_list[] = {
 	{"reset", lpc43xx_cmd_reset, "Reset target"},
 	{"mkboot", lpc43xx_cmd_mkboot, "Make flash bank bootable"},
-	{NULL, NULL, NULL}
+	{NULL, NULL, NULL},
 };
 
 static void lpc43xx_add_flash(
@@ -132,8 +132,7 @@ static bool lpc43xx_mass_erase(target *t)
 	platform_timeout_set(&timeout, 500);
 	lpc43xx_flash_init(t);
 
-	for (int bank = 0; bank < FLASH_NUM_BANK; bank++)
-	{
+	for (size_t bank = 0; bank < FLASH_NUM_BANK; ++bank) {
 		struct lpc_flash *f = (struct lpc_flash *)t->flash;
 		if (lpc_iap_call(f, NULL, IAP_CMD_PREPARE, 0, FLASH_NUM_SECTOR - 1U, bank) ||
 			lpc_iap_call(f, NULL, IAP_CMD_ERASE, 0, FLASH_NUM_SECTOR - 1U, CPU_CLK_KHZ, bank))
@@ -206,9 +205,8 @@ static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv)
 		return false;
 	}
 
-	const long int bank = strtol(argv[1], NULL, 0);
-
-	if ((bank != 0) && (bank != 1)) {
+	const uint32_t bank = strtoul(argv[1], NULL, 0);
+	if (bank > 1) {
 		tc_printf(t, "Unexpected bank number, should be 0 or 1.\n");
 		return false;
 	}
