@@ -64,7 +64,7 @@
 
 static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
-static int lpc43xx_flash_init(target *t);
+static bool lpc43xx_flash_init(target *t);
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_mass_erase(target *t);
 static void lpc43xx_wdt_set_period(target *t);
@@ -152,7 +152,7 @@ static bool lpc43xx_mass_erase(target *t)
 	return true;
 }
 
-static int lpc43xx_flash_init(target *t)
+static bool lpc43xx_flash_init(target *t)
 {
 	/* Deal with WDT */
 	lpc43xx_wdt_set_period(t);
@@ -162,17 +162,13 @@ static int lpc43xx_flash_init(target *t)
 
 	/* Initialize flash IAP */
 	struct lpc_flash *f = (struct lpc_flash *)t->flash;
-	if (lpc_iap_call(f, NULL, IAP_CMD_INIT))
-		return -1;
-
-	return 0;
+	return lpc_iap_call(f, NULL, IAP_CMD_INIT) == IAP_STATUS_CMD_SUCCESS;
 }
 
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len)
 {
-	if (lpc43xx_flash_init(f->t))
+	if (!lpc43xx_flash_init(f->t))
 		return -1;
-
 	return lpc_flash_erase(f, addr, len);
 }
 
