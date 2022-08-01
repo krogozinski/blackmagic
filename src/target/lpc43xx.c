@@ -173,7 +173,7 @@ const struct command_s lpc43xx_cmd_list[] = {
 static void lpc43xx_add_iap_flash(
 	target *t, uint32_t iap_entry, uint8_t bank, uint8_t base_sector, uint32_t addr, size_t len, size_t erasesize)
 {
-	struct lpc_flash *lf = lpc_add_flash(t, addr, len);
+	lpc_flash_s *lf = lpc_add_flash(t, addr, len);
 	lf->f.erase = lpc43xx_flash_erase;
 	lf->f.blocksize = erasesize;
 	lf->f.buf_size = IAP_PGM_CHUNKSIZE;
@@ -355,7 +355,7 @@ static lpc43xx_partid_s lpc43xx_read_partid_flashless(target *const t)
 static lpc43xx_partid_s lpc43xx_read_partid_onchip_flash(target *const t)
 {
 	/* Define a fake Flash structure so we can invoke the IAP system */
-	struct lpc_flash flash;
+	lpc_flash_s flash;
 	flash.f.t = t;
 	flash.wdt_kick = lpc43xx_wdt_kick;
 	flash.iap_entry = target_mem_read32(t, IAP_ENTRYPOINT_LOCATION);
@@ -388,7 +388,7 @@ static bool lpc43xx_mass_erase(target *t)
 	lpc43xx_iap_init(t->flash);
 
 	for (size_t bank = 0; bank < FLASH_NUM_BANK; ++bank) {
-		struct lpc_flash *f = (struct lpc_flash *)t->flash;
+		lpc_flash_s *f = (lpc_flash_s *)t->flash;
 		if (lpc_iap_call(f, NULL, IAP_CMD_PREPARE, 0, FLASH_NUM_SECTOR - 1U, bank) ||
 			lpc_iap_call(f, NULL, IAP_CMD_ERASE, 0, FLASH_NUM_SECTOR - 1U, CPU_CLK_KHZ, bank))
 			return false;
@@ -401,7 +401,7 @@ static bool lpc43xx_mass_erase(target *t)
 static bool lpc43xx_iap_init(struct target_flash *const flash)
 {
 	target *const t = flash->t;
-	struct lpc_flash *const f = (struct lpc_flash *const)flash;
+	lpc_flash_s *const f = (lpc_flash_s *const)flash;
 	/* Deal with WDT */
 	lpc43xx_wdt_set_period(t);
 
@@ -453,7 +453,7 @@ static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv)
 	lpc43xx_iap_init(t->flash);
 
 	/* special command to compute/write magic vector for signature */
-	struct lpc_flash *f = (struct lpc_flash *)t->flash;
+	lpc_flash_s *f = (lpc_flash_s *)t->flash;
 	if (lpc_iap_call(f, NULL, IAP_CMD_SET_ACTIVE_BANK, bank, CPU_CLK_KHZ)) {
 		tc_printf(t, "Set bootable failed.\n");
 		return false;
