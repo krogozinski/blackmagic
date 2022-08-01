@@ -162,9 +162,10 @@ typedef struct lpc43xx_spi_flash {
 static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 
-static lpc43xx_partid_s lpc43xx_iap_read_partid(target *t);
-static lpc43xx_partid_s lpc43xx_read_partid_flashless(target *t);
+static lpc43xx_partid_s lpc43x0_spi_read_partid(target *t);
+
 static bool lpc43xx_iap_init(struct target_flash *flash);
+static lpc43xx_partid_s lpc43xx_iap_read_partid(target *t);
 static int lpc43xx_iap_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_iap_mass_erase(target *t);
 static void lpc43xx_wdt_set_period(target *t);
@@ -346,7 +347,7 @@ bool lpc43xx_probe(target *const t)
 		lpc43xx_detect_flash(t, part_id);
 	}
 	else if (chip_code == 5U || chip_code == 6U) {
-		const lpc43xx_partid_s part_id = lpc43xx_read_partid_flashless(t);
+		const lpc43xx_partid_s part_id = lpc43x0_spi_read_partid(t);
 		DEBUG_WARN("LPC43xx part ID: 0x%08" PRIx32 ":%02x\n", part_id.part, part_id.flash_config);
 		if (part_id.part == LPC43xx_PARTID_INVALID)
 			return false;
@@ -365,7 +366,7 @@ bool lpc43xx_probe(target *const t)
  * Instead, we have to read out the bank 0 OTP bytes to fetch the part identification code.
  * Unfortunately it appears this itself has errata and doesn't line up with the values in the datasheet.
  */
-static lpc43xx_partid_s lpc43xx_read_partid_flashless(target *const t)
+static lpc43xx_partid_s lpc43x0_spi_read_partid(target *const t)
 {
 	lpc43xx_partid_s result;
 	result.part = target_mem_read32(t, LPC43xx_PARTID_LOW);
