@@ -248,36 +248,7 @@ bool lpc43xx_probe(target *const t)
 	return true;
 }
 
-static bool lpc43xx_mass_erase(target *t)
-{
-	platform_timeout timeout;
-	platform_timeout_set(&timeout, 500);
-	lpc43xx_iap_init(t->flash);
-
-	for (size_t bank = 0; bank < FLASH_NUM_BANK; ++bank) {
-		struct lpc_flash *f = (struct lpc_flash *)t->flash;
-		if (lpc_iap_call(f, NULL, IAP_CMD_PREPARE, 0, FLASH_NUM_SECTOR - 1U, bank) ||
-			lpc_iap_call(f, NULL, IAP_CMD_ERASE, 0, FLASH_NUM_SECTOR - 1U, CPU_CLK_KHZ, bank))
-			return false;
-		target_print_progress(&timeout);
-	}
-
-	return true;
-}
-
-static bool lpc43xx_iap_init(struct target_flash *const flash)
-{
-	target *const t = flash->t;
-	struct lpc_flash *const f = (struct lpc_flash *const)flash;
-	/* Deal with WDT */
-	lpc43xx_wdt_set_period(t);
-
-	/* Force internal clock */
-	target_mem_write32(t, LPC43xx_CGU_CPU_CLK, LPC43xx_CGU_BASE_CLK_AUTOBLOCK | LPC43xx_CGU_BASE_CLK_SEL_IRC);
-
-	/* Initialize flash IAP */
-	return lpc_iap_call(f, NULL, IAP_CMD_INIT) == IAP_STATUS_CMD_SUCCESS;
-}
+/* LPC43xx Flashless part routines */
 
 /*
  * It is for reasons of errata that we don't use the IAP device identification mechanism here.
@@ -291,6 +262,8 @@ static lpc43xx_partid_s lpc43xx_read_partid_flashless(target *const t)
 	result.flash_config = 0;
 	return result;
 }
+
+/* LPC43xx IAP On-board Flash part routines */
 
 /*
  * We can for the on-chip Flash parts use the IAP, so do so as this way the ID codes line up with
@@ -323,6 +296,37 @@ static lpc43xx_partid_s lpc43xx_read_partid_onchip_flash(target *const t)
 	result.part = part_id[0];
 	result.flash_config = part_id[1] & LPC43xx_PARTID_FLASH_CONFIG_MASK;
 	return result;
+}
+
+static bool lpc43xx_mass_erase(target *t)
+{
+	platform_timeout timeout;
+	platform_timeout_set(&timeout, 500);
+	lpc43xx_iap_init(t->flash);
+
+	for (size_t bank = 0; bank < FLASH_NUM_BANK; ++bank) {
+		struct lpc_flash *f = (struct lpc_flash *)t->flash;
+		if (lpc_iap_call(f, NULL, IAP_CMD_PREPARE, 0, FLASH_NUM_SECTOR - 1U, bank) ||
+			lpc_iap_call(f, NULL, IAP_CMD_ERASE, 0, FLASH_NUM_SECTOR - 1U, CPU_CLK_KHZ, bank))
+			return false;
+		target_print_progress(&timeout);
+	}
+
+	return true;
+}
+
+static bool lpc43xx_iap_init(struct target_flash *const flash)
+{
+	target *const t = flash->t;
+	struct lpc_flash *const f = (struct lpc_flash *const)flash;
+	/* Deal with WDT */
+	lpc43xx_wdt_set_period(t);
+
+	/* Force internal clock */
+	target_mem_write32(t, LPC43xx_CGU_CPU_CLK, LPC43xx_CGU_BASE_CLK_AUTOBLOCK | LPC43xx_CGU_BASE_CLK_SEL_IRC);
+
+	/* Initialize flash IAP */
+	return lpc_iap_call(f, NULL, IAP_CMD_INIT) == IAP_STATUS_CMD_SUCCESS;
 }
 
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len)
