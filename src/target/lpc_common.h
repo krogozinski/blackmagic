@@ -72,7 +72,7 @@ enum iap_status {
 #define CPU_CLK_KHZ 12000
 
 typedef struct lpc_flash {
-	struct target_flash f;
+	target_flash_s f;
 	uint8_t base_sector;
 	uint8_t bank;
 	uint8_t reserved_pages;
