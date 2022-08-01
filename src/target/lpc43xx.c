@@ -93,7 +93,8 @@ typedef struct lpc43xx_partid {
 static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 
-static lpc43xx_partid_s lpc43xx_read_partid(target *t);
+static lpc43xx_partid_s lpc43xx_read_partid_onchip_flash(target *t);
+static lpc43xx_partid_s lpc43xx_read_partid_flashless(target *t);
 static bool lpc43xx_iap_init(struct target_flash *flash);
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_mass_erase(target *t);
@@ -121,9 +122,9 @@ static void lpc43xx_add_flash(
 	lf->wdt_kick = lpc43xx_wdt_kick;
 }
 
-static void lpc43xx_detect_flash(target *const t, const uint32_t core_type)
+static void lpc43xx_detect_flash(target *const t, const lpc43xx_partid_s part_id)
 {
-	(void)core_type;
+	(void)part_id;
 	/* LPC4337 */
 	const uint32_t iap_entry = target_mem_read32(t, IAP_ENTRYPOINT_LOCATION);
 	target_add_ram(t, 0, 0x1A000000);
@@ -136,10 +137,10 @@ static void lpc43xx_detect_flash(target *const t, const uint32_t core_type)
 	target_add_ram(t, 0x1B080000, 0xE4F80000UL);
 }
 
-static void lpc43xx_detect_flashless(target *const t, const uint32_t core_type)
+static void lpc43xx_detect_flashless(target *const t, const lpc43xx_partid_s part_id)
 {
 	(void)t;
-	(void)core_type;
+	(void)part_id;
 }
 
 bool lpc43xx_probe(target *const t)
@@ -148,23 +149,29 @@ bool lpc43xx_probe(target *const t)
 	if ((chipid & LPC43xx_CHIPID_FAMILY_MASK) != LPC43xx_CHIPID_FAMILY_CODE)
 		return false;
 
-	const uint32_t core_type = t->cpuid & LPC43xx_CHIPID_CORE_TYPE_MASK;
 	const uint32_t chip_code = (chipid & LPC43xx_CHIPID_CHIP_MASK) >> LPC43xx_CHIPID_CHIP_SHIFT;
-
 	t->target_options |= CORTEXM_TOPT_INHIBIT_NRST;
-	t->driver = "LPC43xx";
-	t->mass_erase = lpc43xx_mass_erase;
-
-	lpc43xx_partid_s part_id = lpc43xx_read_partid(t);
-	DEBUG_WARN("LPC43xx part ID: 0x%08" PRIx32 ":%02x\n", part_id.part, part_id.flash_config);
-	if (part_id.part == LPC43xx_PARTID_INVALID)
-		return false;
 
 	/* 4 is for parts with on-chip Flash, 7 is undocumented but might be for LM43S parts */
-	if (chip_code == 4U || chip_code == 7U)
-		lpc43xx_detect_flash(t, core_type);
-	else if (chip_code == 5U || chip_code == 6U)
-		lpc43xx_detect_flashless(t, core_type);
+	if (chip_code == 4U || chip_code == 7U) {
+		const lpc43xx_partid_s part_id = lpc43xx_read_partid_onchip_flash(t);
+		// DEBUG_WARN("LPC43xx part ID: 0x%08" PRIx32 ":%02x\n", part_id.part, part_id.flash_config);
+		gdb_outf("LPC43xx part ID: 0x%08" PRIx32 ":%02x\n", part_id.part, part_id.flash_config);
+		if (part_id.part == LPC43xx_PARTID_INVALID)
+			return false;
+
+		t->mass_erase = lpc43xx_mass_erase;
+		lpc43xx_detect_flash(t, part_id);
+	}
+	else if (chip_code == 5U || chip_code == 6U) {
+		const lpc43xx_partid_s part_id = lpc43xx_read_partid_flashless(t);
+		// DEBUG_WARN("LPC43xx part ID: 0x%08" PRIx32 ":%02x\n", part_id.part, part_id.flash_config);
+		gdb_outf("LPC43xx part ID: 0x%08" PRIx32 ":%02x\n", part_id.part, part_id.flash_config);
+		if (part_id.part == LPC43xx_PARTID_INVALID)
+			return false;
+
+		lpc43xx_detect_flashless(t, part_id);
+	}
 	else
 		return false;
 	return true;
@@ -204,12 +211,46 @@ static bool lpc43xx_iap_init(struct target_flash *const flash)
 /*
  * It is for reasons of errata that we don't use the IAP device identification mechanism here.
  * Instead, we have to read out the bank 0 OTP bytes to fetch the part identification code.
+ * Unfortunately it appears this itself has errata and doesn't line up with the values in the datasheet.
  */
-static lpc43xx_partid_s lpc43xx_read_partid(target *const t)
+static lpc43xx_partid_s lpc43xx_read_partid_flashless(target *const t)
 {
 	lpc43xx_partid_s result;
 	result.part = target_mem_read32(t, LPC43xx_PARTID_LOW);
 	result.flash_config = target_mem_read32(t, LPC43xx_PARTID_HIGH) & LPC43xx_PARTID_FLASH_CONFIG_MASK;
+	return result;
+}
+
+/*
+ * We can for the on-chip Flash parts use the IAP, so do so as this way the ID codes line up with
+ * the ones in the datasheet.
+ */
+static lpc43xx_partid_s lpc43xx_read_partid_onchip_flash(target *const t)
+{
+	/* Define a fake Flash structure so we can invoke the IAP system */
+	struct lpc_flash flash;
+	flash.f.t = t;
+	flash.wdt_kick = lpc43xx_wdt_kick;
+	flash.iap_entry = target_mem_read32(t, IAP_ENTRYPOINT_LOCATION);
+	flash.iap_ram = IAP_RAM_BASE;
+	flash.iap_msp = IAP_RAM_BASE + IAP_RAM_SIZE;
+
+	/* Prepare a failure result in case readback fails */
+	lpc43xx_partid_s result;
+	result.part = LPC43xx_PARTID_INVALID;
+	result.flash_config = LPC43xx_PARTID_FLASH_CONFIG_NONE;
+
+	/* Read back the part ID
+	 * XXX: We only use the first 2 values but because of limitations in lpc_iap_call,
+	 * we have to declare an array of 4
+	 */
+	uint32_t part_id[4];
+	if (!lpc43xx_iap_init(&flash.f) || lpc_iap_call(&flash, part_id, IAP_CMD_PARTID) != IAP_STATUS_CMD_SUCCESS)
+		return result;
+
+	/* Prepare the result and return it */
+	result.part = part_id[0];
+	result.flash_config = part_id[1] & LPC43xx_PARTID_FLASH_CONFIG_MASK;
 	return result;
 }
 
