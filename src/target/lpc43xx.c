@@ -61,7 +61,7 @@ static int lpc43xx_flash_init(target *t);
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_mass_erase(target *t);
 static void lpc43xx_wdt_set_period(target *t);
-static void lpc43xx_wdt_pet(target *t);
+static void lpc43xx_wdt_kick(target *t);
 
 const struct command_s lpc43xx_cmd_list[] = {
 	{"reset", lpc43xx_cmd_reset, "Reset target"},
@@ -81,7 +81,7 @@ static void lpc43xx_add_flash(
 	lf->iap_entry = iap_entry;
 	lf->iap_ram = IAP_RAM_BASE;
 	lf->iap_msp = IAP_RAM_BASE + IAP_RAM_SIZE;
-	lf->wdt_kick = lpc43xx_wdt_pet;
+	lf->wdt_kick = lpc43xx_wdt_kick;
 }
 
 bool lpc43xx_probe(target *t)
@@ -230,12 +230,12 @@ static void lpc43xx_wdt_set_period(target *t)
 		target_mem_write32(t, LPC43xx_WDT_CNT, LPC43xx_WDT_PERIOD_MAX);
 }
 
-static void lpc43xx_wdt_pet(target *t)
+static void lpc43xx_wdt_kick(target *t)
 {
 	/* Check if WDT is on */
 	uint32_t wdt_mode = target_mem_read32(t, LPC43xx_WDT_MODE);
 
-	/* If WDT on, pet */
+	/* If WDT on, kick it so we don't get the target reset */
 	if (wdt_mode) {
 		target_mem_write32(t, LPC43xx_WDT_FEED, 0xAA);
 		target_mem_write32(t, LPC43xx_WDT_FEED, 0xFF);
