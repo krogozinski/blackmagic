@@ -64,7 +64,8 @@
 
 static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
-static bool lpc43xx_flash_init(target *t);
+
+static bool lpc43xx_flash_init(struct target_flash *flash);
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len);
 static bool lpc43xx_mass_erase(target *t);
 static void lpc43xx_wdt_set_period(target *t);
@@ -139,7 +140,7 @@ static bool lpc43xx_mass_erase(target *t)
 {
 	platform_timeout timeout;
 	platform_timeout_set(&timeout, 500);
-	lpc43xx_flash_init(t);
+	lpc43xx_flash_init(t->flash);
 
 	for (size_t bank = 0; bank < FLASH_NUM_BANK; ++bank) {
 		struct lpc_flash *f = (struct lpc_flash *)t->flash;
@@ -152,8 +153,10 @@ static bool lpc43xx_mass_erase(target *t)
 	return true;
 }
 
-static bool lpc43xx_flash_init(target *t)
+static bool lpc43xx_flash_init(struct target_flash *const flash)
 {
+	target *const t = flash->t;
+	struct lpc_flash *const f = (struct lpc_flash *const)flash;
 	/* Deal with WDT */
 	lpc43xx_wdt_set_period(t);
 
@@ -161,13 +164,12 @@ static bool lpc43xx_flash_init(target *t)
 	target_mem_write32(t, LPC43xx_CGU_CPU_CLK, LPC43xx_CGU_BASE_CLK_AUTOBLOCK | LPC43xx_CGU_BASE_CLK_SEL_IRC);
 
 	/* Initialize flash IAP */
-	struct lpc_flash *f = (struct lpc_flash *)t->flash;
 	return lpc_iap_call(f, NULL, IAP_CMD_INIT) == IAP_STATUS_CMD_SUCCESS;
 }
 
 static int lpc43xx_flash_erase(struct target_flash *f, target_addr addr, size_t len)
 {
-	if (!lpc43xx_flash_init(f->t))
+	if (!lpc43xx_flash_init(f))
 		return -1;
 	return lpc_flash_erase(f, addr, len);
 }
@@ -203,7 +205,7 @@ static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv)
 		return false;
 	}
 
-	lpc43xx_flash_init(t);
+	lpc43xx_flash_init(t->flash);
 
 	/* special command to compute/write magic vector for signature */
 	struct lpc_flash *f = (struct lpc_flash *)t->flash;
