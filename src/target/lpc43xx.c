@@ -23,6 +23,7 @@
 #include "target_internal.h"
 #include "cortexm.h"
 #include "lpc_common.h"
+#include "sfdp.h"
 
 #define LPC43xx_CHIPID                0x40043200U
 #define LPC43xx_CHIPID_FAMILY_MASK    0x0fffffffU
@@ -163,6 +164,7 @@ static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 
 static lpc43xx_partid_s lpc43x0_spi_read_partid(target *t);
+static void lpc43x0_spi_read(target *t, uint32_t command, void *buffer, size_t length);
 
 static bool lpc43xx_iap_init(struct target_flash *flash);
 static lpc43xx_partid_s lpc43xx_iap_read_partid(target *t);
@@ -316,15 +318,16 @@ static void lpc43xx_detect_flashless(target *const t, const lpc43xx_partid_s par
 		break;
 	}
 
-	target_mem_write32(t, LPC43x0_SPIFI_CMD, SPI_FLASH_CMD_READ_JEDEC_ID);
-	const uint8_t manufacturer = target_mem_read8(t, LPC43x0_SPIFI_DATA);
-	const uint8_t type = target_mem_read8(t, LPC43x0_SPIFI_DATA);
-	const uint32_t capacity = 1U << target_mem_read8(t, LPC43x0_SPIFI_DATA);
-	DEBUG_WARN("SPI Flash: mfr = %02x, type = %02x, capacity = %08" PRIx32 "\n", manufacturer, type, capacity);
+	spi_flash_id_s flash_id;
+	lpc43x0_spi_read(t, SPI_FLASH_CMD_READ_JEDEC_ID, &flash_id, sizeof(flash_id));
 
 	/* If we read out valid Flash information, set up a region for it */
-	if (manufacturer != 0xFFU && type != 0xFFU)
+	if (flash_id.manufacturer != 0xFFU && flash_id.type != 0xFFU && flash_id.capacity != 0xFFU) {
+		const uint32_t capacity = 1U << flash_id.capacity;
+		DEBUG_WARN("SPI Flash: mfr = %02x, type = %02x, capacity = %08" PRIx32 "\n", flash_id.manufacturer, flash_id.type,
+			capacity);
 		lpc43xx_add_spi_flash(t, capacity);
+	}
 }
 
 bool lpc43xx_probe(target *const t)
@@ -372,6 +375,14 @@ static lpc43xx_partid_s lpc43x0_spi_read_partid(target *const t)
 	result.part = target_mem_read32(t, LPC43xx_PARTID_LOW);
 	result.flash_config = LPC43xx_PARTID_FLASH_CONFIG_NONE;
 	return result;
+}
+
+static void lpc43x0_spi_read(target *const t, const uint32_t command, void *const buffer, const size_t length)
+{
+	target_mem_write32(t, LPC43x0_SPIFI_CMD, command);
+	uint8_t *const data = (uint8_t *const)buffer;
+	for (size_t i = 0; i < length; ++i)
+		data[i] = target_mem_read8(t, LPC43x0_SPIFI_DATA);
 }
 
 /* LPC43xx IAP On-board Flash part routines */
