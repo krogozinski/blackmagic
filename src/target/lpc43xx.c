@@ -144,6 +144,9 @@
 #define LPC43x0_SPIFI_FRAME_MASK           0x00E00000U
 #define LPC43x0_SPIFI_OPCODE(x)            ((x) << 24U)
 
+#define SPI_FLASH_CMD_WRITE_ENABLE                                                              \
+	(LPC43x0_SPIFI_CMD_SERIAL | LPC43x0_SPIFI_FRAME_OPCODE_ONLY | LPC43x0_SPIFI_OPCODE(0x06U) | \
+		LPC43x0_SPIFI_DATA_LENGTH(0) | LPC43x0_SPIFI_INTER_LENGTH(0))
 #define SPI_FLASH_CMD_SECTOR_ERASE                                                                 \
 	(LPC43x0_SPIFI_CMD_SERIAL | LPC43x0_SPIFI_FRAME_OPCODE_3B_ADDR | LPC43x0_SPIFI_OPCODE(0x20U) | \
 		LPC43x0_SPIFI_DATA_LENGTH(0) | LPC43x0_SPIFI_INTER_LENGTH(0))
@@ -440,8 +443,10 @@ static bool lpc43xx_spi_mass_erase(target *const t)
 static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t length)
 {
 	target *const t = f->t;
+	const target_addr begin = addr - f->start;
 	for (size_t offset = 0; offset < length; offset += f->blocksize) {
-		lpc43x0_spi_write(t, SPI_FLASH_CMD_SECTOR_ERASE, addr + offset, NULL, 0);
+		lpc43x0_spi_write(t, SPI_FLASH_CMD_WRITE_ENABLE, 0, NULL, 0);
+		lpc43x0_spi_write(t, SPI_FLASH_CMD_SECTOR_ERASE, begin + offset, NULL, 0);
 		uint8_t status = SPI_FLASH_STATUS_BUSY;
 		while ((status & SPI_FLASH_STATUS_BUSY) == SPI_FLASH_STATUS_BUSY)
 			lpc43x0_spi_read(t, SPI_FLASH_CMD_READ_STATUS, &status, sizeof(status));
