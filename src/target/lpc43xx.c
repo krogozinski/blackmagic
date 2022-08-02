@@ -181,9 +181,9 @@ static void lpc43x0_spi_write(target *t, uint32_t command, target_addr address, 
 static bool lpc43xx_spi_mass_erase(target *t);
 static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t length);
 
-static bool lpc43xx_iap_init(struct target_flash *flash);
+static bool lpc43xx_iap_init(target_flash_s *flash);
 static lpc43xx_partid_s lpc43xx_iap_read_partid(target *t);
-static int lpc43xx_iap_flash_erase(struct target_flash *f, target_addr addr, size_t len);
+static int lpc43xx_iap_flash_erase(target_flash_s *f, target_addr addr, size_t len);
 static bool lpc43xx_iap_mass_erase(target *t);
 static void lpc43xx_wdt_set_period(target *t);
 static void lpc43xx_wdt_kick(target *t);
@@ -451,7 +451,7 @@ static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t l
 
 /* LPC43xx IAP On-board Flash part routines */
 
-static bool lpc43xx_iap_init(struct target_flash *const flash)
+static bool lpc43xx_iap_init(target_flash_s *const flash)
 {
 	target *const t = flash->t;
 	lpc_flash_s *const f = (lpc_flash_s *const)flash;
@@ -498,7 +498,7 @@ static lpc43xx_partid_s lpc43xx_iap_read_partid(target *const t)
 	return result;
 }
 
-static int lpc43xx_iap_flash_erase(struct target_flash *f, target_addr addr, size_t len)
+static int lpc43xx_iap_flash_erase(target_flash_s *f, target_addr addr, size_t len)
 {
 	if (!lpc43xx_iap_init(f))
 		return -1;
