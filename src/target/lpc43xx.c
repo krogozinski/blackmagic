@@ -429,6 +429,7 @@ static bool lpc43xx_spi_mass_erase(target *const t)
 {
 	platform_timeout timeout;
 	platform_timeout_set(&timeout, 500);
+	target_mem_write32(t, LPC43x0_SPIFI_CMD, SPI_FLASH_CMD_WRITE_ENABLE);
 	target_mem_write32(t, LPC43x0_SPIFI_CMD, SPI_FLASH_CMD_CHIP_ERASE);
 
 	while (true) {
@@ -449,7 +450,7 @@ static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t l
 	target *const t = f->t;
 	const target_addr begin = addr - f->start;
 	for (size_t offset = 0; offset < length; offset += f->blocksize) {
-		lpc43x0_spi_write(t, SPI_FLASH_CMD_WRITE_ENABLE, 0, NULL, 0);
+		target_mem_write32(t, LPC43x0_SPIFI_CMD, SPI_FLASH_CMD_WRITE_ENABLE);
 		lpc43x0_spi_write(t, SPI_FLASH_CMD_SECTOR_ERASE, begin + offset, NULL, 0);
 		uint8_t status = SPI_FLASH_STATUS_BUSY;
 		while ((status & SPI_FLASH_STATUS_BUSY) == SPI_FLASH_STATUS_BUSY)
@@ -464,8 +465,8 @@ static int lpc43xx_spi_flash_write(target_flash_s *f, target_addr dest, const vo
 	const target_addr begin = dest - f->start;
 	const char *buffer = src;
 	for (size_t offset = 0; offset < length; offset += 256U) {
-		lpc43x0_spi_write(t, SPI_FLASH_CMD_WRITE_ENABLE, 0, NULL, 0);
 		const size_t amount = MIN(length - offset, 256U);
+		target_mem_write32(t, LPC43x0_SPIFI_CMD, SPI_FLASH_CMD_WRITE_ENABLE);
 		lpc43x0_spi_write(t, SPI_FLASH_CMD_PAGE_PROGRAM, begin + offset, buffer + offset, amount);
 		uint8_t status = SPI_FLASH_STATUS_BUSY;
 		while ((status & SPI_FLASH_STATUS_BUSY) == SPI_FLASH_STATUS_BUSY)
