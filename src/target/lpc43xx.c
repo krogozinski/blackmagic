@@ -143,6 +143,8 @@
 #define LPC43x0_SPIFI_FRAME_OPCODE_4B_ADDR (5U << 21U)
 #define LPC43x0_SPIFI_FRAME_MASK           0x00E00000U
 #define LPC43x0_SPIFI_OPCODE(x)            ((x) << 24U)
+#define LPC43x0_SPIFI_STATUS_CMD_ACTIVE    (1U << 1U)
+#define LPC43x0_SPIFI_STATUS_RESET         (1U << 4U)
 
 #define SPI_FLASH_CMD_WRITE_ENABLE                                                              \
 	(LPC43x0_SPIFI_CMD_SERIAL | LPC43x0_SPIFI_FRAME_OPCODE_ONLY | LPC43x0_SPIFI_OPCODE(0x06U) | \
@@ -182,6 +184,7 @@ static bool lpc43xx_cmd_reset(target *t, int argc, const char **argv);
 static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 
 static lpc43xx_partid_s lpc43x0_spi_read_partid(target *t);
+static void lpc43x0_spi_abort(target *t);
 static void lpc43x0_spi_read(target *t, uint32_t command, target_addr address, void *buffer, size_t length);
 static void lpc43x0_spi_write(target *t, uint32_t command, target_addr address, const void *buffer, size_t length);
 static bool lpc43x0_spi_mass_erase(target *t);
@@ -347,6 +350,7 @@ static void lpc43x0_detect(target *const t, const lpc43xx_partid_s part_id)
 	}
 
 	const uint32_t read_command = target_mem_read32(t, LPC43x0_SPIFI_MCMD);
+	lpc43x0_spi_abort(t);
 	spi_flash_id_s flash_id;
 	lpc43x0_spi_read(t, SPI_FLASH_CMD_READ_JEDEC_ID, 0, &flash_id, sizeof(flash_id));
 
@@ -409,6 +413,19 @@ static lpc43xx_partid_s lpc43x0_spi_read_partid(target *const t)
 	return result;
 }
 
+static void lpc43x0_spi_abort(target *const t)
+{
+	target_mem_write32(t, LPC43x0_SPIFI_STAT, LPC43x0_SPIFI_STATUS_RESET);
+	while (target_mem_read32(t, LPC43x0_SPIFI_STAT) & LPC43x0_SPIFI_STATUS_RESET)
+		continue;
+}
+
+static inline void lpc43x0_spi_wait_complete(target *const t)
+{
+	while (target_mem_read32(t, LPC43x0_SPIFI_STAT) & LPC43x0_SPIFI_STATUS_CMD_ACTIVE)
+		continue;
+}
+
 static void lpc43x0_spi_read(
 	target *const t, const uint32_t command, const target_addr address, void *const buffer, const size_t length)
 {
@@ -418,6 +435,7 @@ static void lpc43x0_spi_read(
 	uint8_t *const data = (uint8_t *const)buffer;
 	for (size_t i = 0; i < length; ++i)
 		data[i] = target_mem_read8(t, LPC43x0_SPIFI_DATA);
+	lpc43x0_spi_wait_complete(t);
 }
 
 static void lpc43x0_spi_write(
@@ -429,6 +447,7 @@ static void lpc43x0_spi_write(
 	uint8_t *const data = (uint8_t *const)buffer;
 	for (size_t i = 0; i < length; ++i)
 		target_mem_write8(t, LPC43x0_SPIFI_DATA, data[i]);
+	lpc43x0_spi_wait_complete(t);
 }
 
 static bool lpc43x0_spi_mass_erase(target *const t)
