@@ -184,9 +184,9 @@ static bool lpc43xx_cmd_mkboot(target *t, int argc, const char **argv);
 static lpc43xx_partid_s lpc43x0_spi_read_partid(target *t);
 static void lpc43x0_spi_read(target *t, uint32_t command, target_addr address, void *buffer, size_t length);
 static void lpc43x0_spi_write(target *t, uint32_t command, target_addr address, const void *buffer, size_t length);
-static bool lpc43xx_spi_mass_erase(target *t);
-static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t length);
-static int lpc43xx_spi_flash_write(target_flash_s *f, target_addr dest, const void *src, size_t length);
+static bool lpc43x0_spi_mass_erase(target *t);
+static int lpc43x0_spi_flash_erase(target_flash_s *f, target_addr addr, size_t length);
+static int lpc43x0_spi_flash_write(target_flash_s *f, target_addr dest, const void *src, size_t length);
 
 static bool lpc43xx_iap_init(target_flash_s *flash);
 static lpc43xx_partid_s lpc43xx_iap_read_partid(target *t);
@@ -216,7 +216,7 @@ static void lpc43xx_add_iap_flash(
 	lf->wdt_kick = lpc43xx_wdt_kick;
 }
 
-static void lpc43xx_detect_flash(target *const t, const lpc43xx_partid_s part_id)
+static void lpc43xx_detect(target *const t, const lpc43xx_partid_s part_id)
 {
 	const uint32_t iap_entry = target_mem_read32(t, IAP_ENTRYPOINT_LOCATION);
 
@@ -291,7 +291,7 @@ static void lpc43xx_detect_flash(target *const t, const lpc43xx_partid_s part_id
 	target_add_commands(t, lpc43xx_cmd_list, "LPC43xx");
 }
 
-static void lpc43xx_add_spi_flash(target *const t, const size_t length, const uint32_t read_command)
+static void lpc43x0_add_spi_flash(target *const t, const size_t length, const uint32_t read_command)
 {
 	lpc43xx_spi_flash_s *const flash = calloc(1, sizeof(*flash));
 	if (!flash) {
@@ -303,15 +303,15 @@ static void lpc43xx_add_spi_flash(target *const t, const size_t length, const ui
 	f->start = LPC43x0_SPI_FLASH_LOW_BASE;
 	f->length = length;
 	f->blocksize = 4096; // TODO: Read the SFDP to determine this and other parameters
-	f->write = lpc43xx_spi_flash_write;
-	f->erase = lpc43xx_spi_flash_erase;
+	f->write = lpc43x0_spi_flash_write;
+	f->erase = lpc43x0_spi_flash_erase;
 	f->erased = 0xffU;
 	target_add_flash(t, f);
 
 	flash->read_command = read_command;
 }
 
-static void lpc43xx_detect_flashless(target *const t, const lpc43xx_partid_s part_id)
+static void lpc43x0_detect(target *const t, const lpc43xx_partid_s part_id)
 {
 	switch (part_id.part) {
 	case LPC43xx_PARTID_LPC4310:
@@ -355,7 +355,7 @@ static void lpc43xx_detect_flashless(target *const t, const lpc43xx_partid_s par
 		const uint32_t capacity = 1U << flash_id.capacity;
 		DEBUG_WARN("SPI Flash: mfr = %02x, type = %02x, capacity = %08" PRIx32 "\n", flash_id.manufacturer, flash_id.type,
 			capacity);
-		lpc43xx_add_spi_flash(t, capacity, read_command);
+		lpc43x0_add_spi_flash(t, capacity, read_command);
 	}
 	/* Restore the read command as using the other command register clobbers this. */
 	target_mem_write32(t, LPC43x0_SPIFI_MCMD, read_command);
@@ -378,7 +378,7 @@ bool lpc43xx_probe(target *const t)
 			return false;
 
 		t->mass_erase = lpc43xx_iap_mass_erase;
-		lpc43xx_detect_flash(t, part_id);
+		lpc43xx_detect(t, part_id);
 	}
 	else if (chip_code == 5U || chip_code == 6U) {
 		const lpc43xx_partid_s part_id = lpc43x0_spi_read_partid(t);
@@ -386,8 +386,8 @@ bool lpc43xx_probe(target *const t)
 		if (part_id.part == LPC43xx_PARTID_INVALID)
 			return false;
 
-		t->mass_erase = lpc43xx_spi_mass_erase;
-		lpc43xx_detect_flashless(t, part_id);
+		t->mass_erase = lpc43x0_spi_mass_erase;
+		lpc43x0_detect(t, part_id);
 	}
 	else
 		return false;
@@ -431,7 +431,7 @@ static void lpc43x0_spi_write(
 		target_mem_write8(t, LPC43x0_SPIFI_DATA, data[i]);
 }
 
-static bool lpc43xx_spi_mass_erase(target *const t)
+static bool lpc43x0_spi_mass_erase(target *const t)
 {
 	platform_timeout timeout;
 	platform_timeout_set(&timeout, 500);
@@ -451,7 +451,7 @@ static bool lpc43xx_spi_mass_erase(target *const t)
 	return true;
 }
 
-static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t length)
+static int lpc43x0_spi_flash_erase(target_flash_s *f, target_addr addr, size_t length)
 {
 	target *const t = f->t;
 	const target_addr begin = addr - f->start;
@@ -468,7 +468,7 @@ static int lpc43xx_spi_flash_erase(target_flash_s *f, target_addr addr, size_t l
 	return 0;
 }
 
-static int lpc43xx_spi_flash_write(target_flash_s *f, target_addr dest, const void *src, size_t length)
+static int lpc43x0_spi_flash_write(target_flash_s *f, target_addr dest, const void *src, size_t length)
 {
 	target *const t = f->t;
 	const target_addr begin = dest - f->start;
